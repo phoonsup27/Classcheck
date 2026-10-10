@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Environment Variables
+.env
+
+# Build files
+dist/
+build/
+
+# Test coverage
+coverage/
+
+# VS Code
+.vscode/settings.json

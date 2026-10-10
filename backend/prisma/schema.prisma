@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Test {
+  id   Int    @id @default(autoincrement())
+  name String
+}
+
+model Role {
+  id          BigInt   @id @default(autoincrement())
+  roleName    String   @unique @db.VarChar(50)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           BigInt    @id @default(autoincrement())
+  username     String    @unique @db.VarChar(100)
+  passwordHash String
+  roleId       BigInt
+  teacherId    BigInt?   @unique
+  isActive     Boolean   @default(true)
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  role    Role     @relation(fields: [roleId], references: [id])
+  teacher Teacher? @relation(fields: [teacherId], references: [id])
+
+  attendances Attendance[]
+
+  @@map("users")
+}
+
+model Teacher {
+  id          BigInt   @id @default(autoincrement())
+
+  teacherCode String   @unique @db.VarChar(20)
+
+  fullName    String   @db.VarChar(255)
+
+  position    String?  @db.VarChar(100)
+
+  nationalId  String?  @unique @db.VarChar(20)
+
+  phone       String?  @db.VarChar(20)
+
+  gender      String?  @db.VarChar(20)
+
+  email       String?  @unique @db.VarChar(100)
+
+  status      Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User?
+
+  schedules Schedule[]
+
+  homeroomClassrooms Classroom[]
+
+  @@map("teachers") 
+}
+
+model Classroom {
+  id                BigInt  @id @default(autoincrement())
+  classroomName     String  @db.VarChar(20)
+  gradeLevel        String  @db.VarChar(20)
+  roomNumber        String  @db.VarChar(10)
+  homeroomTeacherId BigInt?
+  schoolYearId      BigInt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  homeroomTeacher Teacher?   @relation(fields: [homeroomTeacherId], references: [id])
+  schoolYear      SchoolYear @relation(fields: [schoolYearId], references: [id])
+
+  students Student[]
+
+  schedules Schedule[]
+
+  @@map("classrooms")
+}
+
+model Student {
+  id            BigInt    @id @default(autoincrement())
+  studentCode   String    @unique @db.VarChar(20)
+  nationalId    String?   @unique @db.VarChar(20)
+
+  prefix        String?   @db.VarChar(20)
+  fullName      String    @db.VarChar(255)
+
+  gender        String?   @db.VarChar(20)
+  birthDate     DateTime?
+
+  classroomId   BigInt?
+  classroomName String?   @db.VarChar(100)
+  studentNumber Int?
+  status        Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classroom Classroom? @relation(fields: [classroomId], references: [id])
+
+  attendanceDetails AttendanceDetail[]
+
+  @@map("students")
+}
+
+model Subject {
+  id          BigInt  @id @default(autoincrement())
+  subjectCode String  @unique @db.VarChar(20)
+  subjectName String  @db.VarChar(200)
+  credit      Decimal @db.Decimal(3, 1)
+  description String?
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  schedules Schedule[]
+
+  @@map("subjects")
+}
+
+model SchoolYear {
+  id        BigInt   @id @default(autoincrement())
+  yearName  String   @unique @db.VarChar(20)
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classrooms Classroom[]
+  semesters  Semester[]
+
+  @@map("school_years")
+}
+
+model Semester {
+  id           BigInt   @id @default(autoincrement())
+  semesterName String   @db.VarChar(20)
+  schoolYearId BigInt
+  startDate    DateTime
+  endDate      DateTime
+  isActive     Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schoolYear SchoolYear @relation(fields: [schoolYearId], references: [id])
+
+  schedules Schedule[]
+
+  @@map("semesters")
+}
+
+model Schedule {
+  id BigInt @id @default(autoincrement())
+
+  teacherId   BigInt
+  subjectId   BigInt
+  classroomId BigInt
+  semesterId  BigInt
+
+  dayOfWeek Int
+  period    Int
+
+  startTime DateTime @db.Time(0)
+  endTime   DateTime @db.Time(0)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacher   Teacher   @relation(fields: [teacherId], references: [id])
+  subject   Subject   @relation(fields: [subjectId], references: [id])
+  classroom Classroom @relation(fields: [classroomId], references: [id])
+  semester  Semester  @relation(fields: [semesterId], references: [id])
+
+  attendances Attendance[]
+
+  // ห้ามมีตารางสอนซ้ำ
+  @@unique([teacherId, dayOfWeek, period, semesterId])
+  // ห้องเดียวกันห้ามมีการสอนซ้อนกัน
+  @@unique([classroomId, dayOfWeek, period, semesterId])
+  @@map("schedules")
+}
+
+model Attendance {
+  id BigInt @id @default(autoincrement())
+
+  attendanceDate DateTime
+  scheduleId     BigInt
+  checkedBy      BigInt
+
+  checkedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedule    Schedule @relation(fields: [scheduleId], references: [id])
+  checkedUser User     @relation(fields: [checkedBy], references: [id])
+
+  details AttendanceDetail[]
+
+  // หนึ่งคาบ หนึ่งวัน เช็คได้ครั้งเดียว
+  @@unique([attendanceDate, scheduleId])
+  @@map("attendance")
+}
+
+model AttendanceDetail {
+  id BigInt @id @default(autoincrement())
+
+  attendanceId BigInt
+
+  studentId BigInt
+
+  status String @db.VarChar(20)
+
+  remark String?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  attendance Attendance @relation(fields: [attendanceId], references: [id])
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@unique([attendanceId, studentId])
+  @@map("attendance_details")
+}
